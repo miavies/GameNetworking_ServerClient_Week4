@@ -59,7 +59,7 @@ public class NetworkSessionManager : MonoBehaviour, INetworkRunnerCallbacks
     private void Start()
     {
         #if SERVER
-        StartGame(GameMode.Host);
+        StartGame(GameMode.Server);
         #elif CLIENT
         StartGame(GameMode.Client);
         #endif
