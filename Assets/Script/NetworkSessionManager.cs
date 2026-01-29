@@ -1,27 +1,27 @@
 using Fusion;
 using Fusion.Sockets;
+using Network;
 using System;
 using System.Collections.Generic;
-using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
-public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
+public class NetworkSessionManager : MonoBehaviour, INetworkRunnerCallbacks
 {
     #region Public Variables
-    [SerializeField] private NetworkPrefabRef playerPrefab;
-    [SerializeField] private TMP_InputField nameTxt;
-    [SerializeField] private TMP_Dropdown colorDropdown;
-    [SerializeField] private Button playBtn;
+    public static NetworkSessionManager Instance { get; private set; }
+
     #endregion
 
     #region Private Variables
     private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = null;
     private NetworkRunner _networkRunner;
 
-    public Color playerColor;
-    public string playerName;
+    public List<PlayerRef> _joinedPlayers = new();
+    public IReadOnlyList<PlayerRef> JoinedPlayers => _joinedPlayers;
+
+    public event Action<PlayerRef> OnPlayerJoinedEvent;
+    public event Action<PlayerRef> OnPlayerLeftEvent;
     #endregion
 
     async void StartGame(GameMode game)
@@ -46,22 +46,25 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
     #region Unity Callbacks
     private void Awake()
     {
-        _spawnedCharacters = new Dictionary<PlayerRef, NetworkObject>();
-       
+        if(Instance == null)
+        {
+            Instance = this;
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
     }
 
-    public void PlayButton()
+    private void Start()
     {
-        SetColor();
-        SetName();
-
         #if SERVER
         StartGame(GameMode.Host);
         #elif CLIENT
         StartGame(GameMode.Client);
         #endif
     }
-    #endregion
+#endregion
 
     #region Used Fusion Callbacks
     public void OnInput(NetworkRunner runner, NetworkInput input)
@@ -73,61 +76,17 @@ public class NetworkManager : MonoBehaviour, INetworkRunnerCallbacks
 
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        if (runner.IsServer)
-        {
-            var position = Vector3.zero;
-             var networkObject = runner.Spawn(playerPrefab, position, Quaternion.identity, player);
-            _spawnedCharacters.Add(player, networkObject);
-        }
+        _joinedPlayers.Add(player);
+        OnPlayerJoinedEvent?.Invoke(player);
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        if (!_spawnedCharacters.TryGetValue(player, out var playerObject)) return;
-
-        runner.Despawn(playerObject);
-        _spawnedCharacters.Remove(player);
+        _joinedPlayers.Remove(player);
+        OnPlayerLeftEvent?.Invoke(player);
     }
     #endregion
 
-    private void SetColor()
-    {
-        switch (colorDropdown.value)
-        {
-            case 0: 
-                playerColor = Color.white;
-                break;
-            case 1: 
-                playerColor = Color.black;
-                break;
-            case 2: 
-                playerColor = Color.red;
-                break;
-            case 3: 
-                playerColor = Color.orange;
-                break;
-            case 4: 
-                playerColor = Color.yellow;
-                break;
-            case 5: 
-                playerColor = Color.green;
-                break;
-            case 6: 
-                playerColor = Color.blue;
-                break;
-            case 7: 
-                playerColor = Color.purple;
-                break;
-            default: 
-                playerColor = Color.cyan;
-                break;
-        }
-    }
-
-    private void SetName()
-    {
-         playerName = nameTxt.text;
-    }
 
     #region
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player)

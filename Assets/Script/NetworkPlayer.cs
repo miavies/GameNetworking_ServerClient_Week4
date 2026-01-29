@@ -16,7 +16,7 @@ public class NetworkPlayer : NetworkBehaviour
     [Networked] public NetworkString<_32> PlayerName{ get; set; }
 
     [Header("Network Manager")]
-    public NetworkManager networkManager;
+    public NetworkSessionManager networkManager;
 
     #region Fusion Callbacks
     //relevant to the network, do it in spawned (initialization)
@@ -29,8 +29,8 @@ public class NetworkPlayer : NetworkBehaviour
             camera.transform.localPosition = Vector3.zero;
             camera.transform.localRotation = Quaternion.identity;
 
-            networkManager = GameObject.Find("GameManager").GetComponent<NetworkManager>();
-            RPC_SetPlayerCustoms(networkManager.playerColor, networkManager.playerName);
+            networkManager = GameObject.Find("GameManager").GetComponent<NetworkSessionManager>();
+            //RPC_SetPlayerCustoms(networkManager.playerColor, networkManager.playerName);
         }
 
         if (HasStateAuthority) //server
