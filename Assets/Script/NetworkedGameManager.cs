@@ -20,6 +20,11 @@ namespace Network
 
         private int maxPlayers = 2;
         private int timerBeforeStart = 3;
+        private bool GameHasStarted = false;
+
+        #region Networked Properties
+        [Networked] public TickTimer RoundStartTimer { get; set; }
+        #endregion
 
         public override void Spawned()
         {
@@ -38,6 +43,21 @@ namespace Network
         public override void FixedUpdateNetwork()
         {
             _playerCountText.text = $"Players: {Object.Runner.ActivePlayers.Count()}/{maxPlayers}";
+
+            if (RoundStartTimer.IsRunning)
+            {
+                _timerCountText.text = RoundStartTimer.RemainingTime(Object.Runner).ToString();
+            }
+            else
+            {
+                _timerCountText.text = "";
+            }
+
+            if (!GameHasStarted && RoundStartTimer.Expired(Object.Runner))
+            {
+                GameHasStarted = true;
+                OnGameStarted();
+            }
         }
 
         private void OnPlayerJoined(PlayerRef player)
@@ -46,7 +66,7 @@ namespace Network
             if (NetworkSessionManager.Instance.JoinedPlayers.Count >= maxPlayers)
             {
                 //start game count down nad then spawn
-                OnGameStarted();
+                RoundStartTimer = TickTimer.CreateFromSeconds(Object.Runner, timerBeforeStart);
             }
             Debug.Log($"Player {player.PlayerId} Joined");
         }
