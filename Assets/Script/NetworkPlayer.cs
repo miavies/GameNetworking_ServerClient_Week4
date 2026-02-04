@@ -1,7 +1,8 @@
-using UnityEngine;
 using Fusion;
-using UnityEngine.UI;
+using System.Collections.Generic;
 using TMPro;
+using UnityEngine;
+using UnityEngine.UI;
 
 public class NetworkPlayer : NetworkBehaviour
 {
@@ -13,13 +14,12 @@ public class NetworkPlayer : NetworkBehaviour
     [Header("Network Properties")]
     [Networked] public Vector3 NetworkedPosition { get; set; }
     [Networked] public Color PlayerColor { get; set; }
-    [Networked] public NetworkString<_32> PlayerName{ get; set; }
-
-    [Header("Network Manager")]
-    public NetworkSessionManager networkManager;
+    [Networked] public NetworkString<_32> PlayerName { get; set; }
+    [Networked] public int PlayerTeam { get; set; }
 
     #region Fusion Callbacks
     //relevant to the network, do it in spawned (initialization)
+
     public override void Spawned()
     {
         if (HasInputAuthority) //client
@@ -29,8 +29,11 @@ public class NetworkPlayer : NetworkBehaviour
             camera.transform.localPosition = Vector3.zero;
             camera.transform.localRotation = Quaternion.identity;
 
-            networkManager = GameObject.Find("GameManager").GetComponent<NetworkSessionManager>();
-            //RPC_SetPlayerCustoms(networkManager.playerColor, networkManager.playerName);
+            string name = NetworkSessionManager.Instance.playerName;
+            Color color = NetworkSessionManager.Instance.playerColor;
+            int team = NetworkSessionManager.Instance.playerTeam;
+
+            RPC_SetPlayerData(name, color, team);
         }
 
         if (HasStateAuthority) //server
@@ -48,10 +51,10 @@ public class NetworkPlayer : NetworkBehaviour
     public override void FixedUpdateNetwork()
     {
         if (!HasStateAuthority) return;
-        if(GetInput(out NetworkInputData input))
+        if (GetInput(out NetworkInputData input))
         {
-            this.transform.position += 
-                new Vector3(input.InputVector.normalized.x, input.InputVector.normalized.y) 
+            this.transform.position +=
+                new Vector3(input.InputVector.normalized.x, input.InputVector.normalized.y)
                 * Runner.DeltaTime;
 
             NetworkedPosition = this.transform.position;
@@ -62,20 +65,59 @@ public class NetworkPlayer : NetworkBehaviour
     public override void Render()
     {
         this.transform.position = NetworkedPosition;
-        if (_meshRenderer != null && _meshRenderer.material.color != PlayerColor)
+
+        if (playerNameTxt != null)
+            playerNameTxt.text = PlayerName.ToString();
+
+        _meshRenderer = GetComponent<MeshRenderer>();
+        if (_meshRenderer != null)
         {
             _meshRenderer.material.color = PlayerColor;
         }
 
-        if (playerNameTxt != null)
-            playerNameTxt.text = PlayerName.ToString();
+
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
-    public void RPC_SetPlayerCustoms(Color color, string name)
+    public void RPC_SetPlayerData(string name, Color color, int team)
     {
-        PlayerColor = color;
-        PlayerName = name;
+        if (HasStateAuthority)
+        {
+            PlayerName = name;
+            PlayerColor = color;
+            PlayerTeam = team;
+
+            Transform spawnPoint = AssignPlayerPosition(PlayerTeam);
+            Transform pos = spawnPoint;
+
+            transform.position = spawnPoint.position;
+            transform.rotation = spawnPoint.rotation;
+        }
+    }
+
+    private Transform AssignPlayerPosition(int teamNum)
+    {
+        
+        List<Transform> list;
+
+        if (teamNum == 1)
+        {
+            list = NetworkSessionManager.Instance.team1Pos;
+        }
+        else
+        {
+            list = NetworkSessionManager.Instance.team2Pos;
+        }
+
+        if (list.Count == 0)
+        {
+            Debug.LogError($"No spawn points left for team {teamNum}");
+            return null;
+        }
+
+        Transform pos = list[0];
+        list.RemoveAt(0);
+        return pos;
     }
 
     #endregion

@@ -16,8 +16,6 @@ namespace Network
 
         private Dictionary<PlayerRef, NetworkObject> _spawnedCharacters = new();
 
-        private NetworkSessionManager _networkSessionManager;
-
         private int maxPlayers = 2;
         private int timerBeforeStart = 3;
         private bool GameHasStarted = false;
@@ -63,6 +61,7 @@ namespace Network
         private void OnPlayerJoined(PlayerRef player)
         {
             if (!HasStateAuthority) return;
+
             if (NetworkSessionManager.Instance.JoinedPlayers.Count >= maxPlayers)
             {
                 //start game count down nad then spawn
@@ -71,7 +70,7 @@ namespace Network
             Debug.Log($"Player {player.PlayerId} Joined");
         }
 
-        private void OnPlayerLeft(PlayerRef player) 
+        private void OnPlayerLeft(PlayerRef player)
         {
             if (!HasStateAuthority) return;
             if (!_spawnedCharacters.TryGetValue(player, out NetworkObject networkObject)) return;
@@ -89,9 +88,6 @@ namespace Network
                 _spawnedCharacters.Add(playerSpawn, networkObject);
             }
         }
-
-        
     }
-
 }
 
