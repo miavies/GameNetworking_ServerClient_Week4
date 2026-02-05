@@ -3,11 +3,16 @@ using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Windows;
 
 public class NetworkPlayer : NetworkBehaviour
 {
+    private static readonly int Speed = Animator.StringToHash("Speed");
+    private static readonly int Jump = Animator.StringToHash("Jump");
+
     [Header("Player")]
-    [SerializeField] private MeshRenderer _meshRenderer;
+    [SerializeField] private SkinnedMeshRenderer _meshRenderer;
+    [SerializeField] private Animator _animator;
     [SerializeField] private TextMeshProUGUI playerNameTxt;
     [SerializeField] private Transform cameraPos;
 
@@ -16,6 +21,12 @@ public class NetworkPlayer : NetworkBehaviour
     [Networked] public Color PlayerColor { get; set; }
     [Networked] public NetworkString<_32> PlayerName { get; set; }
     [Networked] public int PlayerTeam { get; set; }
+    [Networked] public NetworkAnimatorData AnimatorData { get; set; }
+
+    #region Interpolation
+    private Vector3 _lastknownPosition;
+    [SerializeField] private float _lerpSpeed = 3f; //smaller value => smoother
+    #endregion
 
     #region Fusion Callbacks
     //relevant to the network, do it in spawned (initialization)
@@ -38,6 +49,11 @@ public class NetworkPlayer : NetworkBehaviour
 
         if (HasStateAuthority) //server
         {
+            AnimatorData = new NetworkAnimatorData
+            {
+                Speed = 0,
+                Jump = false
+            };
         }
     }
 
@@ -56,26 +72,47 @@ public class NetworkPlayer : NetworkBehaviour
             this.transform.position +=
                 new Vector3(input.InputVector.normalized.x, input.InputVector.normalized.y)
                 * Runner.DeltaTime;
+           
+            if(input.JumpInput)
+            _animator.SetTrigger(Jump.ToString());
+
+        _animator.SetFloat(Speed, input.SprintInput ? 1f : 0f);
 
             NetworkedPosition = this.transform.position;
+
+            AnimatorData = new NetworkAnimatorData()
+            {
+                Speed = input.SprintInput ? 1f : 0f,
+                Jump = input.JumpInput,
+            };
+
         }
     }
 
     //happens after fixedupdatenetwork, for nonserver objects
     public override void Render()
     {
-        this.transform.position = NetworkedPosition;
 
         if (playerNameTxt != null)
             playerNameTxt.text = PlayerName.ToString();
 
-        _meshRenderer = GetComponent<MeshRenderer>();
         if (_meshRenderer != null)
         {
             _meshRenderer.material.color = PlayerColor;
         }
 
+        if (AnimatorData.Jump)
+            _animator.SetTrigger(Jump.ToString());
 
+        _animator.SetFloat(Speed, AnimatorData.Speed);
+
+
+}
+
+    public void LateUpdate()
+    {
+        this.transform.position = Vector3.Lerp(_lastknownPosition, NetworkedPosition, Runner.DeltaTime * _lerpSpeed);
+        _lastknownPosition = NetworkedPosition;
     }
 
     [Rpc(RpcSources.InputAuthority, RpcTargets.StateAuthority)]
@@ -121,6 +158,8 @@ public class NetworkPlayer : NetworkBehaviour
     }
 
     #endregion
+
+    
 
     #region Unity Callbacks
 
