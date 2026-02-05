@@ -74,7 +74,7 @@ public class NetworkPlayer : NetworkBehaviour
                 * Runner.DeltaTime;
            
             if(input.JumpInput)
-            _animator.SetTrigger(Jump.ToString());
+            _animator.SetTrigger(Jump);
 
         _animator.SetFloat(Speed, input.SprintInput ? 1f : 0f);
 
@@ -102,7 +102,7 @@ public class NetworkPlayer : NetworkBehaviour
         }
 
         if (AnimatorData.Jump)
-            _animator.SetTrigger(Jump.ToString());
+            _animator.SetTrigger(Jump);
 
         _animator.SetFloat(Speed, AnimatorData.Speed);
 
